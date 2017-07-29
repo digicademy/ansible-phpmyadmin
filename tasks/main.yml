@@ -1,0 +1,48 @@
+---
+- name: Update apt cache
+  apt: update_cache=yes cache_valid_time=3600
+
+- name: Install dbconfig-common
+  apt: pkg=dbconfig-common state=latest install_recommends=no
+
+- name: Pre-configure phpmyadmin using dbconfig-common
+  template:
+    src: phpmyadmin.conf.j2
+    dest: /etc/dbconfig-common/phpmyadmin.conf
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Install phpmyadmin packages
+  apt: pkg=phpmyadmin state=latest install_recommends=no
+
+- name: Create database for phpmyadmin
+  mysql_db:
+    name: "{{ phpmyadmin_control_database | default('phpmyadmin') }}"
+    state: present
+  register: phpmyadmin_database
+
+- name: Import phpmyadmin schema
+  mysql_db:
+    name: "{{ phpmyadmin_control_database | default('phpmyadmin') }}"
+    state: import
+    target: /usr/share/dbconfig-common/data/phpmyadmin/install/mysql
+  when: phpmyadmin_database is defined and phpmyadmin_database.changed == True
+
+- name: Create phpmyadmin control user
+  mysql_user:
+    name: "{{ phpmyadmin_control_user | default('phpmyadmin') }}"
+    state: present
+    password: "{{ phpmyadmin_control_password }}"
+    priv: "{{ phpmyadmin_control_database | default('phpmyadmin') }}.*:ALL"
+
+- name: Take out global /phpmyadmin alias for apache2
+  lineinfile:
+    dest: "{{ phpmyadmin_apache2_conffile }}"
+    line: "Alias /phpmyadmin /usr/share/phpmyadmin"
+    state: absent
+  register: phpmyadmin_apache2_configuration
+
+- name: Restart apache2 when configuration was changed
+  service: name=apache2 state=restarted
+  when: phpmyadmin_apache2_configuration.changed == true

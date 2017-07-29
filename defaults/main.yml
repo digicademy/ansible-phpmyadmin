@@ -1,0 +1,8 @@
+---
+phpmyadmin_control_user: "phpmyadmin"
+
+phpmyadmin_control_password: "vagrant"
+
+phpmyadmin_control_database: "phpmyadmin"
+
+phpmyadmin_apache2_conffile: "/etc/phpmyadmin/apache.conf"
